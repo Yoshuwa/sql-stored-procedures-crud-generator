@@ -5,6 +5,21 @@ All notable changes to this project will be documented here. Releases follow
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-07
+
+### Added
+
+- Single-table selection and generation using `@SchemaTableOrViewName`.
+- Advanced forms for the upstream naming, audit, time, row-version, temporal,
+  and search-separator parameters.
+- Non-destructive generated-procedure validation with per-procedure results.
+- Disposable LocalDB integration coverage for preview, create, browse, and test.
+
+### Changed
+
+- Table metadata is loaded for the selected database; views remain excluded.
+- The generator procedure itself is excluded from the generated-procedure list.
+
 ## [0.2.0] - 2026-08-07
 
 ### Added
@@ -30,6 +45,7 @@ All notable changes to this project will be documented here. Releases follow
 - Safe SQL preview and explicit confirmation for database changes.
 - MIT licensing, upstream attribution, contribution templates, and CI.
 
-[Unreleased]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/releases/tag/v0.1.0

@@ -33,4 +33,25 @@ public sealed class GeneratorOptionsTests
 
         Assert.False(subject.HasSelection);
     }
+
+    [Fact]
+    public void SelectedProcedureSuffixes_ContainsOnlyEnabledTypes()
+    {
+        var subject = new GeneratorOptions
+        {
+            GenerateCreate = true,
+            GenerateCreateMultiple = false,
+            GenerateRead = true,
+            GenerateReadEager = false,
+            GenerateUpdate = false,
+            GenerateUpdateMultiple = false,
+            GenerateUpsert = false,
+            GenerateIndate = false,
+            GenerateDelete = false,
+            GenerateDeleteMultiple = false,
+            GenerateSearch = false
+        };
+
+        Assert.Equal(["Create", "Read"], subject.SelectedProcedureSuffixes);
+    }
 }

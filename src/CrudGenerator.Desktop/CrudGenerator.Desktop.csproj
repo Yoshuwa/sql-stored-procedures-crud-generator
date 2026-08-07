@@ -8,7 +8,7 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <VersionPrefix>0.2.0</VersionPrefix>
+    <VersionPrefix>0.3.0</VersionPrefix>
     <AssemblyName>SqlStoredProceduresCrudGenerator</AssemblyName>
     <Product>SQL Stored Procedures CRUD Generator</Product>
     <Description>Open-source desktop interface for generating SQL Server CRUD stored procedures with sp_CRUDGen.</Description>

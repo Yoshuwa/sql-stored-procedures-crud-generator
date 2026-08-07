@@ -32,7 +32,9 @@ disable system-wide Gatekeeper protections.
 ## Database permissions
 
 Database discovery requires access to `master` and `HAS_DBACCESS` visibility.
-Generated-procedure browsing requires metadata visibility in the selected database.
+Table and generated-procedure browsing require metadata visibility in the selected database.
 Installing `sp_CRUDGen` and creating procedures additionally require the
-corresponding DDL permissions. Use a non-production database first and grant
+corresponding DDL permissions. Procedure validation uses `sys.sp_refreshsqlmodule`
+inside a rolled-back transaction and may require `ALTER` permission on the generated
+modules. Use a non-production database first and grant
 only the minimum required privileges.
