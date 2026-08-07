@@ -55,6 +55,15 @@
             <TextBlock Text="Database" Margin="0,4,0,0" />
             <ComboBox ItemsSource="{Binding Databases}" SelectedItem="{Binding SelectedDatabase}"
                       PlaceholderText="Select a database" IsEnabled="{Binding !IsBusy}" />
+            <TextBlock Text="Table" Margin="0,4,0,0" />
+            <ComboBox ItemsSource="{Binding Tables}" SelectedItem="{Binding SelectedTable}"
+                      PlaceholderText="Select a table" IsEnabled="{Binding !IsBusy}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="core:DatabaseTable">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
           </StackPanel>
         </Border>
 
@@ -81,10 +90,10 @@
 
       <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="16,0,0,0">
         <Border Classes="card" Margin="0,0,0,16">
-          <Grid ColumnDefinitions="2*,Auto">
+          <Grid ColumnDefinitions="*,Auto">
             <StackPanel>
               <TextBlock Classes="section" Text="Procedure types" />
-              <TextBlock Text="Selections apply to every eligible table and view in the chosen database."
+              <TextBlock Text="Selections apply only to the selected table."
                          Opacity="0.6" FontSize="11" Margin="0,0,0,10" />
               <WrapPanel Orientation="Horizontal">
                 <CheckBox Content="Create" IsChecked="{Binding GenerateCreate}" Margin="0,0,16,8" />
@@ -99,13 +108,50 @@
                 <CheckBox Content="Delete multiple" IsChecked="{Binding GenerateDeleteMultiple}" Margin="0,0,16,8" />
                 <CheckBox Content="Search" IsChecked="{Binding GenerateSearch}" Margin="0,0,16,8" />
               </WrapPanel>
+              <Expander Header="Advanced sp_CRUDGen parameters" Margin="0,4,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,8,10,0">
+                  <TextBlock Text="Search separator" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Column="1" Text="{Binding SearchSeparatorString}" Margin="0,0,14,6" />
+                  <TextBlock Grid.Column="2" Text="Version column" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Column="3" Text="{Binding VersionStampColumnName}" Margin="0,0,0,6" />
+
+                  <TextBlock Grid.Row="1" Text="Created by column" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CreatePersonColumnName}" Margin="0,0,14,6" />
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="Created time column" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding CreateTimeColumnName}" Margin="0,0,0,6" />
+
+                  <TextBlock Grid.Row="2" Text="Created time function" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding TimeFunctions}"
+                            SelectedItem="{Binding CreateTimeFunction}" Margin="0,0,14,6" />
+                  <TextBlock Grid.Row="2" Grid.Column="2" Text="Modified by column" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding ModifyPersonColumnName}" Margin="0,0,0,6" />
+
+                  <TextBlock Grid.Row="3" Text="Modified time column" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ModifyTimeColumnName}" Margin="0,0,14,6" />
+                  <TextBlock Grid.Row="3" Grid.Column="2" Text="Modified time function" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <ComboBox Grid.Row="3" Grid.Column="3" ItemsSource="{Binding TimeFunctions}"
+                            SelectedItem="{Binding ModifyTimeFunction}" Margin="0,0,0,6" />
+
+                  <TextBlock Grid.Row="4" Text="Temporal valid from" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ValidFromTimeColumnName}" Margin="0,0,14,6" />
+                  <TextBlock Grid.Row="4" Grid.Column="2" Text="Temporal valid to" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox Grid.Row="4" Grid.Column="3" Text="{Binding ValidToTimeColumnName}" Margin="0,0,0,6" />
+
+                  <CheckBox Grid.Row="5" Grid.ColumnSpan="2" Content="Join created-by person table"
+                            IsChecked="{Binding CreatePersonInclude}" />
+                  <CheckBox Grid.Row="5" Grid.Column="2" Grid.ColumnSpan="2" Content="Join modified-by person table"
+                            IsChecked="{Binding ModifyPersonInclude}" />
+                </Grid>
+              </Expander>
             </StackPanel>
             <StackPanel Grid.Column="1" Width="215" Spacing="8" Margin="20,0,0,0">
-              <Button Classes="primary" Command="{Binding GeneratePreviewCommand}" Content="Preview database-wide SQL"
+              <Button Classes="primary" Command="{Binding GeneratePreviewCommand}" Content="Preview selected table SQL"
                       HorizontalContentAlignment="Center" />
               <Button Command="{Binding InstallGeneratorCommand}" Content="Install / update generator"
                       HorizontalContentAlignment="Center" />
-              <Button Command="{Binding CreateProceduresCommand}" Content="Create all procedures"
+              <Button Command="{Binding CreateProceduresCommand}" Content="Create table procedures"
+                      HorizontalContentAlignment="Center" />
+              <Button Command="{Binding TestProceduresCommand}" Content="Test generated procedures"
                       HorizontalContentAlignment="Center" />
               <CheckBox Content="I confirm database changes" IsChecked="{Binding ConfirmDatabaseChanges}" FontSize="11" />
             </StackPanel>
