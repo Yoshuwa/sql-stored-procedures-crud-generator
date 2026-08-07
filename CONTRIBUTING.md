@@ -5,10 +5,14 @@ Thanks for helping improve SQL Stored Procedures CRUD Generator.
 ## Development workflow
 
 1. Open an issue before starting a large behavioral or UI change.
-2. Create a focused branch and keep unrelated changes out of the pull request.
+2. Create a focused branch from `develop` and keep unrelated changes out of the pull request.
 3. Run `dotnet build CrudGenerator.sln` and `dotnet test CrudGenerator.sln`.
 4. Include tests for changes to generation options, validation, or SQL behavior.
 5. Never include real connection strings, credentials, or customer schema data.
+
+Use `feature/*`, `fix/*`, `docs/*`, or `chore/*` branch names and target
+`develop` for ordinary pull requests. See
+[docs/BRANCHING_AND_RELEASES.md](docs/BRANCHING_AND_RELEASES.md).
 
 ## Database safety
 

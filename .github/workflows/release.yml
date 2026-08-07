@@ -1,0 +1,117 @@
+name: Release desktop packages
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            format: zip
+          - os: ubuntu-latest
+            rid: linux-x64
+            format: tar.gz
+          - os: macos-latest
+            rid: osx-x64
+            format: tar.gz
+          - os: macos-latest
+            rid: osx-arm64
+            format: tar.gz
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}".TrimStart('v')
+          $projectVersion = [xml](Get-Content "src/CrudGenerator.Desktop/CrudGenerator.Desktop.csproj")
+          $expectedVersion = $projectVersion.Project.PropertyGroup.VersionPrefix | Select-Object -First 1
+          if ($tagVersion -ne $expectedVersion) {
+            throw "Tag version $tagVersion does not match project version $expectedVersion."
+          }
+      - run: dotnet restore CrudGenerator.sln --locked-mode
+      - name: Publish self-contained application
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          dotnet publish src/CrudGenerator.Desktop/CrudGenerator.Desktop.csproj `
+            --configuration Release `
+            --runtime "${{ matrix.rid }}" `
+            --self-contained true `
+            --no-restore `
+            --output "artifacts/publish/${{ matrix.rid }}" `
+            -p:Version=$version `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None
+          Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md "artifacts/publish/${{ matrix.rid }}"
+      - name: Package Windows archive
+        if: matrix.format == 'zip'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts/release -Force | Out-Null
+          Compress-Archive `
+            -Path "artifacts/publish/${{ matrix.rid }}/*" `
+            -DestinationPath "artifacts/release/SQL-Stored-Procedures-CRUD-Generator-${{ github.ref_name }}-${{ matrix.rid }}.zip"
+      - name: Package Linux archive
+        if: startsWith(matrix.rid, 'linux-')
+        shell: bash
+        run: |
+          mkdir -p artifacts/release
+          tar -czf "artifacts/release/SQL-Stored-Procedures-CRUD-Generator-${{ github.ref_name }}-${{ matrix.rid }}.tar.gz" \
+            -C "artifacts/publish/${{ matrix.rid }}" .
+      - name: Package macOS application bundle
+        if: startsWith(matrix.rid, 'osx-')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          app="artifacts/bundle/SQL Stored Procedures CRUD Generator.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" artifacts/release
+          cp -R "artifacts/publish/${{ matrix.rid }}/." "$app/Contents/MacOS/"
+          cp packaging/macos/Info.plist "$app/Contents/Info.plist"
+          plutil -replace CFBundleShortVersionString -string "$version" "$app/Contents/Info.plist"
+          plutil -replace CFBundleVersion -string "$version" "$app/Contents/Info.plist"
+          tar -czf "artifacts/release/SQL-Stored-Procedures-CRUD-Generator-${{ github.ref_name }}-${{ matrix.rid }}.tar.gz" \
+            -C artifacts/bundle "SQL Stored Procedures CRUD Generator.app"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.rid }}
+          path: artifacts/release/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: artifacts/release
+          merge-multiple: true
+      - name: Create SHA-256 checksums
+        working-directory: artifacts/release
+        run: sha256sum SQL-Stored-Procedures-CRUD-Generator-* > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          make_latest: true
+          files: artifacts/release/*

@@ -1,5 +1,10 @@
 # SQL Stored Procedures CRUD Generator
 
+[![CI](https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/actions/workflows/codeql.yml/badge.svg)](https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/Yoshuwa/sql-stored-procedures-crud-generator?include_prereleases)](https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 An open-source SQL Server CRUD stored procedure generator with a desktop interface for
 [`sp_CRUDGen`](https://github.com/kevinmartintech/sp_CRUDGen), the SQL Server
 stored-procedure generator created by **Kevin Martin**.
@@ -42,6 +47,14 @@ dotnet run --project src/CrudGenerator.Desktop/CrudGenerator.Desktop.csproj
 The default server is `(localdb)\MSSQLLocalDB`. Enter the database name before
 connecting. SQL authentication passwords live only in the current process and
 are never written to disk.
+
+## Download a release
+
+Published releases provide self-contained packages for Windows x64, Linux x64,
+Intel macOS, and Apple Silicon macOS. Download the archive for your platform
+from the [Releases page](https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/releases)
+and verify it against `SHA256SUMS.txt`. See the
+[installation guide](docs/INSTALLATION.md) for platform-specific instructions.
 
 ## How the safety flow works
 
@@ -112,3 +125,7 @@ documentation, tests, database compatibility improvements, and UI ideas are all
 valuable. Read [CONTRIBUTING.md](CONTRIBUTING.md), then open an issue or pull
 request. By participating, you agree to follow our
 [Code of Conduct](CODE_OF_CONDUCT.md).
+
+The project uses protected `main` and `develop` branches with short-lived
+feature branches. See [docs/BRANCHING_AND_RELEASES.md](docs/BRANCHING_AND_RELEASES.md)
+for the complete workflow.
