@@ -5,6 +5,19 @@ All notable changes to this project will be documented here. Releases follow
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-07
+
+### Added
+
+- Server-level discovery of every accessible online database.
+- Automatic loading and filtering of stored procedures created by `sp_CRUDGen`.
+
+### Changed
+
+- Database selection now drives generator detection and procedure browsing.
+- Preview and create actions use `sp_CRUDGen` database-wide mode without loading
+  tables or views into the desktop UI.
+
 ## [0.1.0] - 2026-08-07
 
 ### Added
@@ -17,5 +30,6 @@ All notable changes to this project will be documented here. Releases follow
 - Safe SQL preview and explicit confirmation for database changes.
 - MIT licensing, upstream attribution, contribution templates, and CI.
 
-[Unreleased]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Yoshuwa/sql-stored-procedures-crud-generator/releases/tag/v0.1.0

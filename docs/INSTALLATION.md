@@ -31,7 +31,8 @@ disable system-wide Gatekeeper protections.
 
 ## Database permissions
 
-Metadata browsing requires access to the target database's schema metadata.
+Database discovery requires access to `master` and `HAS_DBACCESS` visibility.
+Generated-procedure browsing requires metadata visibility in the selected database.
 Installing `sp_CRUDGen` and creating procedures additionally require the
 corresponding DDL permissions. Use a non-production database first and grant
 only the minimum required privileges.
