@@ -1,0 +1,17 @@
+bin/
+obj/
+.packages/
+.vs/
+.idea/
+*.user
+*.suo
+*.nupkg
+TestResults/
+artifacts/
+publish/
+.DS_Store
+
+# Never commit local connection or secret files.
+appsettings.Local.json
+*.secrets.json
+.env

@@ -1,0 +1,134 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CrudGenerator.Desktop.ViewModels"
+        xmlns:core="using:CrudGenerator.Core"
+        x:Class="CrudGenerator.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1240" Height="800" MinWidth="980" MinHeight="650"
+        Title="SQL Stored Procedures CRUD Generator">
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#5267E9" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="64,*,40" Background="{DynamicResource ApplicationPageBackgroundThemeBrush}">
+    <Border Grid.Row="0" Background="#172033" Padding="22,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="SQL Stored Procedures CRUD Generator" Foreground="White" FontSize="21" FontWeight="Bold" />
+          <TextBlock Text="Open-source UI for sp_CRUDGen by Kevin Martin" Foreground="#AEB9D2" FontSize="12" />
+        </StackPanel>
+        <Border Grid.Column="1" CornerRadius="12" Padding="10,4" VerticalAlignment="Center" Background="#27334D">
+          <TextBlock Text="{Binding GeneratorStatus}" Foreground="#D7DEF2" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="330,*" Margin="18">
+      <Grid RowDefinitions="Auto,*">
+        <Border Classes="card" Margin="0,0,0,16">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="section" Text="Connection" />
+            <TextBlock Text="Server" />
+            <TextBox Text="{Binding Server}" Watermark="localhost" />
+            <TextBlock Text="Database" />
+            <TextBox Text="{Binding Database}" Watermark="YourDatabase" />
+            <CheckBox Content="Windows authentication" IsChecked="{Binding UseIntegratedSecurity}" />
+            <Grid ColumnDefinitions="*,*" IsVisible="{Binding !UseIntegratedSecurity}">
+              <TextBox Text="{Binding UserName}" Watermark="User name" Margin="0,0,4,0" />
+              <TextBox Grid.Column="1" Text="{Binding Password}" PasswordChar="●" Watermark="Password" />
+            </Grid>
+            <Button Classes="primary" Command="{Binding ConnectCommand}" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" Content="Connect and load objects" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Classes="card">
+          <Grid RowDefinitions="Auto,Auto,*">
+            <TextBlock Classes="section" Text="Tables and views" />
+            <TextBox Grid.Row="1" Text="{Binding SearchText}" Watermark="Filter objects…" Margin="0,0,0,10" />
+            <ListBox Grid.Row="2" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="core:DatabaseObject">
+                  <Grid ColumnDefinitions="*,Auto" Margin="4,6">
+                    <TextBlock Text="{Binding DisplayName}" />
+                    <TextBlock Grid.Column="1" Text="{Binding Type}" Opacity="0.55" FontSize="11" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="16,0,0,0">
+        <Border Classes="card" Margin="0,0,0,16">
+          <Grid ColumnDefinitions="2*,Auto">
+            <StackPanel>
+              <TextBlock Classes="section" Text="Procedure types" />
+              <WrapPanel Orientation="Horizontal">
+                <CheckBox Content="Create" IsChecked="{Binding GenerateCreate}" Margin="0,0,16,8" />
+                <CheckBox Content="Create multiple" IsChecked="{Binding GenerateCreateMultiple}" Margin="0,0,16,8" />
+                <CheckBox Content="Read" IsChecked="{Binding GenerateRead}" Margin="0,0,16,8" />
+                <CheckBox Content="Read eager" IsChecked="{Binding GenerateReadEager}" Margin="0,0,16,8" />
+                <CheckBox Content="Update" IsChecked="{Binding GenerateUpdate}" Margin="0,0,16,8" />
+                <CheckBox Content="Update multiple" IsChecked="{Binding GenerateUpdateMultiple}" Margin="0,0,16,8" />
+                <CheckBox Content="Upsert" IsChecked="{Binding GenerateUpsert}" Margin="0,0,16,8" />
+                <CheckBox Content="Indate" IsChecked="{Binding GenerateIndate}" Margin="0,0,16,8" />
+                <CheckBox Content="Delete" IsChecked="{Binding GenerateDelete}" Margin="0,0,16,8" />
+                <CheckBox Content="Delete multiple" IsChecked="{Binding GenerateDeleteMultiple}" Margin="0,0,16,8" />
+                <CheckBox Content="Search" IsChecked="{Binding GenerateSearch}" Margin="0,0,16,8" />
+              </WrapPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Width="215" Spacing="8" Margin="20,0,0,0">
+              <Button Classes="primary" Command="{Binding GeneratePreviewCommand}" Content="Generate safe preview"
+                      HorizontalContentAlignment="Center" />
+              <Button Command="{Binding InstallGeneratorCommand}" Content="Install / update generator"
+                      HorizontalContentAlignment="Center" />
+              <Button Command="{Binding CreateProceduresCommand}" Content="Create procedures"
+                      HorizontalContentAlignment="Center" />
+              <CheckBox Content="I confirm database changes" IsChecked="{Binding ConfirmDatabaseChanges}" FontSize="11" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Classes="card">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Classes="section" Text="SQL preview" Margin="0" />
+                <TextBlock Text="Preview mode does not create or replace procedures." Opacity="0.6" FontSize="11" />
+              </StackPanel>
+              <Button Grid.Column="1" Command="{Binding ClearOutputCommand}" Content="Clear" />
+            </Grid>
+            <TextBox Grid.Row="1" Text="{Binding GeneratedSql}" AcceptsReturn="True" IsReadOnly="True"
+                     FontFamily="Cascadia Mono,Consolas,monospace" FontSize="13"
+                     TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <Border Grid.Row="2" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="18,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <ProgressBar Grid.Column="1" Width="120" IsIndeterminate="True" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

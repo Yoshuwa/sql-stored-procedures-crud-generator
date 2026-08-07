@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{30DF2749-7688-43B8-A8DF-A80CD67573F5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrudGenerator.Core", "src\CrudGenerator.Core\CrudGenerator.Core.csproj", "{57B09E75-A803-48F6-9059-085311964CE6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrudGenerator.SqlServer", "src\CrudGenerator.SqlServer\CrudGenerator.SqlServer.csproj", "{2DCABF81-10DF-40D5-8310-7C23F3958C1E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrudGenerator.Desktop", "src\CrudGenerator.Desktop\CrudGenerator.Desktop.csproj", "{7D19522C-1990-403F-AC33-008444FFC265}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{A935E4BC-D5F6-4F9B-818A-E15D8B14E1CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrudGenerator.Core.Tests", "tests\CrudGenerator.Core.Tests\CrudGenerator.Core.Tests.csproj", "{FD7CEB2F-3C3A-482B-83A1-16DADF68D251}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{57B09E75-A803-48F6-9059-085311964CE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57B09E75-A803-48F6-9059-085311964CE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57B09E75-A803-48F6-9059-085311964CE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57B09E75-A803-48F6-9059-085311964CE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DCABF81-10DF-40D5-8310-7C23F3958C1E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DCABF81-10DF-40D5-8310-7C23F3958C1E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DCABF81-10DF-40D5-8310-7C23F3958C1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DCABF81-10DF-40D5-8310-7C23F3958C1E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D19522C-1990-403F-AC33-008444FFC265}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D19522C-1990-403F-AC33-008444FFC265}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D19522C-1990-403F-AC33-008444FFC265}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D19522C-1990-403F-AC33-008444FFC265}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD7CEB2F-3C3A-482B-83A1-16DADF68D251}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD7CEB2F-3C3A-482B-83A1-16DADF68D251}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD7CEB2F-3C3A-482B-83A1-16DADF68D251}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD7CEB2F-3C3A-482B-83A1-16DADF68D251}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{57B09E75-A803-48F6-9059-085311964CE6} = {30DF2749-7688-43B8-A8DF-A80CD67573F5}
+		{2DCABF81-10DF-40D5-8310-7C23F3958C1E} = {30DF2749-7688-43B8-A8DF-A80CD67573F5}
+		{7D19522C-1990-403F-AC33-008444FFC265} = {30DF2749-7688-43B8-A8DF-A80CD67573F5}
+		{FD7CEB2F-3C3A-482B-83A1-16DADF68D251} = {A935E4BC-D5F6-4F9B-818A-E15D8B14E1CD}
+	EndGlobalSection
+EndGlobal
