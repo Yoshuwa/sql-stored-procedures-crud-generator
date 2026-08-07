@@ -22,6 +22,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CrudGenerator.Core\CrudGenerator.Core.csproj" />
+    <ProjectReference Include="..\..\src\CrudGenerator.SqlServer\CrudGenerator.SqlServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\sql\sp_CRUDGen.sql" Link="sql\sp_CRUDGen.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

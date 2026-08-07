@@ -8,6 +8,12 @@ namespace CrudGenerator.SqlServer;
 
 public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorService
 {
+    private static readonly HashSet<string> AllowedTimeFunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SYSDATETIMEOFFSET()", "SYSUTCDATETIME()", "SYSDATETIME()",
+        "GETUTCDATE()", "GETDATE()", "CURRENT_TIMESTAMP"
+    };
+
     public async Task<IReadOnlyList<string>> GetDatabasesAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
     {
         await using var connection = CreateConnection(profile, connectToMaster: true);
@@ -37,6 +43,7 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
             INNER JOIN sys.schemas AS s ON s.schema_id = p.schema_id
             INNER JOIN sys.sql_modules AS m ON m.object_id = p.object_id
             WHERE p.is_ms_shipped = 0
+              AND NOT (s.name = N'dbo' AND p.name = N'sp_CRUDGen')
             ORDER BY s.name, p.name;
             """;
         await using var command = new SqlCommand(sql, connection);
@@ -49,6 +56,26 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
                 procedures.Add(new StoredProcedureInfo(reader.GetString(0), reader.GetString(1), reader.GetDateTime(2)));
         }
         return procedures;
+    }
+
+    public async Task<IReadOnlyList<DatabaseTable>> GetTablesAsync(
+        ConnectionProfile profile, CancellationToken cancellationToken = default)
+    {
+        await using var connection = CreateConnection(profile);
+        await connection.OpenAsync(cancellationToken);
+        const string sql = """
+            SELECT s.name, t.name
+            FROM sys.tables AS t
+            INNER JOIN sys.schemas AS s ON s.schema_id = t.schema_id
+            WHERE t.is_ms_shipped = 0
+            ORDER BY s.name, t.name;
+            """;
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var tables = new List<DatabaseTable>();
+        while (await reader.ReadAsync(cancellationToken))
+            tables.Add(new DatabaseTable(reader.GetString(0), reader.GetString(1)));
+        return tables;
     }
 
     public async Task<bool> IsGeneratorInstalledAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
@@ -74,11 +101,13 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
         }
     }
 
-    public async Task<GenerationResult> GenerateAsync(ConnectionProfile profile, GeneratorOptions options,
+    public async Task<GenerationResult> GenerateAsync(ConnectionProfile profile, DatabaseTable table, GeneratorOptions options,
         bool createProcedures, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(table);
         ArgumentNullException.ThrowIfNull(options);
         if (!options.HasSelection) throw new InvalidOperationException("Select at least one stored procedure type.");
+        ValidateGenerationInputs(table, options);
 
         await using var connection = CreateConnection(profile);
         connection.FireInfoMessageEventOnUserErrors = true;
@@ -92,7 +121,7 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
             CommandTimeout = 180
         };
         command.Parameters.Add("@GenerateStoredProcedures", SqlDbType.Bit).Value = createProcedures;
-        command.Parameters.Add("@SchemaTableOrViewName", SqlDbType.NVarChar, 200).Value = DBNull.Value;
+        command.Parameters.Add("@SchemaTableOrViewName", SqlDbType.NVarChar, 200).Value = table.DisplayName;
         AddFlag(command, "@GenerateCreate", options.GenerateCreate);
         AddFlag(command, "@GenerateCreateMultiple", options.GenerateCreateMultiple);
         AddFlag(command, "@GenerateRead", options.GenerateRead);
@@ -104,6 +133,18 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
         AddFlag(command, "@GenerateDelete", options.GenerateDelete);
         AddFlag(command, "@GenerateDeleteMultiple", options.GenerateDeleteMultiple);
         AddFlag(command, "@GenerateSearch", options.GenerateSearch);
+        AddText(command, "@SearchSeparatorString", options.SearchSeparatorString);
+        AddText(command, "@CreatePersonColumnName", options.CreatePersonColumnName);
+        AddFlag(command, "@CreatePersonInclude", options.CreatePersonInclude);
+        AddText(command, "@CreateTimeColumnName", options.CreateTimeColumnName);
+        AddText(command, "@CreateTimeFunction", options.CreateTimeFunction, 30, unicode: false);
+        AddText(command, "@ModifyPersonColumnName", options.ModifyPersonColumnName);
+        AddFlag(command, "@ModifyPersonInclude", options.ModifyPersonInclude);
+        AddText(command, "@ModifyTimeColumnName", options.ModifyTimeColumnName);
+        AddText(command, "@ModifyTimeFunction", options.ModifyTimeFunction, 30, unicode: false);
+        AddText(command, "@VersionStampColumnName", options.VersionStampColumnName);
+        AddText(command, "@ValidFromTimeColumName", options.ValidFromTimeColumnName);
+        AddText(command, "@ValidToTimeColumName", options.ValidToTimeColumnName);
 
         var output = new StringBuilder();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -118,6 +159,66 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
 
         if (output.Length == 0 && messages.Count > 0) output.AppendLine(string.Join(Environment.NewLine, messages));
         return new GenerationResult(output.ToString().Trim(), messages);
+    }
+
+    public async Task<IReadOnlyList<ProcedureTestResult>> TestGeneratedProceduresAsync(
+        ConnectionProfile profile, DatabaseTable table, GeneratorOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(options);
+        if (!options.HasSelection) throw new InvalidOperationException("Select at least one stored procedure type.");
+        ValidateGenerationInputs(table, options);
+
+        await using var connection = CreateConnection(profile);
+        await connection.OpenAsync(cancellationToken);
+        var results = new List<ProcedureTestResult>();
+        foreach (var suffix in options.SelectedProcedureSuffixes)
+        {
+            var procedureName = table.Name + suffix;
+            var qualifiedName = $"{table.Schema}.{procedureName}";
+            const string definitionSql = """
+                SELECT m.definition
+                FROM sys.procedures AS p
+                INNER JOIN sys.schemas AS s ON s.schema_id = p.schema_id
+                INNER JOIN sys.sql_modules AS m ON m.object_id = p.object_id
+                WHERE s.name = @SchemaName AND p.name = @ProcedureName;
+                """;
+            await using var definitionCommand = new SqlCommand(definitionSql, connection);
+            definitionCommand.Parameters.Add("@SchemaName", SqlDbType.NVarChar, 128).Value = table.Schema;
+            definitionCommand.Parameters.Add("@ProcedureName", SqlDbType.NVarChar, 128).Value = procedureName;
+            var definition = await definitionCommand.ExecuteScalarAsync(cancellationToken) as string;
+            if (definition is null)
+            {
+                results.Add(new ProcedureTestResult(qualifiedName, false, "Procedure was not found."));
+                continue;
+            }
+            if (!StoredProcedureInfo.IsGeneratedBySpCrudGen(definition))
+            {
+                results.Add(new ProcedureTestResult(qualifiedName, false, "Procedure does not contain the sp_CRUDGen marker."));
+                continue;
+            }
+
+            await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                await using var refreshCommand = new SqlCommand("sys.sp_refreshsqlmodule", connection, transaction)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+                refreshCommand.Parameters.Add("@name", SqlDbType.NVarChar, 776).Value = qualifiedName;
+                await refreshCommand.ExecuteNonQueryAsync(cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
+                results.Add(new ProcedureTestResult(qualifiedName, true, "Exists, is generated by sp_CRUDGen, and SQL Server rebound it successfully."));
+            }
+            catch (SqlException exception)
+            {
+                try { await transaction.RollbackAsync(CancellationToken.None); }
+                catch (InvalidOperationException) { }
+                results.Add(new ProcedureTestResult(qualifiedName, false, exception.Message));
+            }
+        }
+        return results;
     }
 
     private static SqlConnection CreateConnection(ConnectionProfile profile, bool connectToMaster = false)
@@ -139,6 +240,19 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
 
     private static void AddFlag(SqlCommand command, string name, bool value) =>
         command.Parameters.Add(name, SqlDbType.Bit).Value = value;
+
+    private static void AddText(SqlCommand command, string name, string value, int size = -1, bool unicode = true) =>
+        command.Parameters.Add(name, unicode ? SqlDbType.NVarChar : SqlDbType.VarChar, size).Value = value ?? string.Empty;
+
+    private static void ValidateGenerationInputs(DatabaseTable table, GeneratorOptions options)
+    {
+        if (table.DisplayName.Length > 200)
+            throw new InvalidOperationException("The selected schema-qualified table name exceeds sp_CRUDGen's 200-character limit.");
+        if (!AllowedTimeFunctions.Contains(options.CreateTimeFunction))
+            throw new InvalidOperationException("Select a documented created-time function.");
+        if (!AllowedTimeFunctions.Contains(options.ModifyTimeFunction))
+            throw new InvalidOperationException("Select a documented modified-time function.");
+    }
 
     [GeneratedRegex(@"(?im)^\s*GO\s*(?:--.*)?$")]
     private static partial Regex GoLineRegex();
