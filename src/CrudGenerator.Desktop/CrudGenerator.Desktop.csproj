@@ -2,11 +2,19 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <AssemblyName>SqlStoredProceduresCrudGenerator</AssemblyName>
+    <Product>SQL Stored Procedures CRUD Generator</Product>
+    <Description>Open-source desktop interface for generating SQL Server CRUD stored procedures with sp_CRUDGen.</Description>
+    <Authors>SQL Stored Procedures CRUD Generator contributors</Authors>
+    <RepositoryUrl>https://github.com/Yoshuwa/sql-stored-procedures-crud-generator</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
