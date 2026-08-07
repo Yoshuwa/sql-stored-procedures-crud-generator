@@ -8,32 +8,47 @@ namespace CrudGenerator.SqlServer;
 
 public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorService
 {
-    public async Task TestConnectionAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> GetDatabasesAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
     {
-        await using var connection = CreateConnection(profile);
+        await using var connection = CreateConnection(profile, connectToMaster: true);
         await connection.OpenAsync(cancellationToken);
+        const string sql = """
+            SELECT name
+            FROM sys.databases
+            WHERE state = 0 AND HAS_DBACCESS(name) = 1
+            ORDER BY name;
+            """;
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var databases = new List<string>();
+        while (await reader.ReadAsync(cancellationToken))
+            databases.Add(reader.GetString(0));
+        return databases;
     }
 
-    public async Task<IReadOnlyList<DatabaseObject>> GetObjectsAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<StoredProcedureInfo>> GetGeneratedProceduresAsync(
+        ConnectionProfile profile, CancellationToken cancellationToken = default)
     {
         await using var connection = CreateConnection(profile);
         await connection.OpenAsync(cancellationToken);
         const string sql = """
-            SELECT s.name, o.name, o.type
-            FROM sys.objects AS o
-            INNER JOIN sys.schemas AS s ON s.schema_id = o.schema_id
-            WHERE o.type IN ('U', 'V') AND o.is_ms_shipped = 0
-            ORDER BY s.name, o.name;
+            SELECT s.name, p.name, p.modify_date, m.definition
+            FROM sys.procedures AS p
+            INNER JOIN sys.schemas AS s ON s.schema_id = p.schema_id
+            INNER JOIN sys.sql_modules AS m ON m.object_id = p.object_id
+            WHERE p.is_ms_shipped = 0
+            ORDER BY s.name, p.name;
             """;
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var objects = new List<DatabaseObject>();
+        var procedures = new List<StoredProcedureInfo>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            objects.Add(new DatabaseObject(reader.GetString(0), reader.GetString(1),
-                reader.GetString(2) == "V" ? DatabaseObjectType.View : DatabaseObjectType.Table));
+            var definition = reader.IsDBNull(3) ? null : reader.GetString(3);
+            if (StoredProcedureInfo.IsGeneratedBySpCrudGen(definition))
+                procedures.Add(new StoredProcedureInfo(reader.GetString(0), reader.GetString(1), reader.GetDateTime(2)));
         }
-        return objects;
+        return procedures;
     }
 
     public async Task<bool> IsGeneratorInstalledAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
@@ -59,10 +74,9 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
         }
     }
 
-    public async Task<GenerationResult> GenerateAsync(ConnectionProfile profile, DatabaseObject databaseObject,
-        GeneratorOptions options, bool createProcedures, CancellationToken cancellationToken = default)
+    public async Task<GenerationResult> GenerateAsync(ConnectionProfile profile, GeneratorOptions options,
+        bool createProcedures, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(databaseObject);
         ArgumentNullException.ThrowIfNull(options);
         if (!options.HasSelection) throw new InvalidOperationException("Select at least one stored procedure type.");
 
@@ -78,7 +92,7 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
             CommandTimeout = 180
         };
         command.Parameters.Add("@GenerateStoredProcedures", SqlDbType.Bit).Value = createProcedures;
-        command.Parameters.Add("@SchemaTableOrViewName", SqlDbType.NVarChar, 200).Value = databaseObject.QualifiedName;
+        command.Parameters.Add("@SchemaTableOrViewName", SqlDbType.NVarChar, 200).Value = DBNull.Value;
         AddFlag(command, "@GenerateCreate", options.GenerateCreate);
         AddFlag(command, "@GenerateCreateMultiple", options.GenerateCreateMultiple);
         AddFlag(command, "@GenerateRead", options.GenerateRead);
@@ -106,13 +120,13 @@ public sealed partial class SqlServerCrudGeneratorService : ICrudGeneratorServic
         return new GenerationResult(output.ToString().Trim(), messages);
     }
 
-    private static SqlConnection CreateConnection(ConnectionProfile profile)
+    private static SqlConnection CreateConnection(ConnectionProfile profile, bool connectToMaster = false)
     {
-        profile.Validate();
+        if (connectToMaster) profile.ValidateServer(); else profile.Validate();
         var builder = new SqlConnectionStringBuilder
         {
             DataSource = profile.Server.Trim(),
-            InitialCatalog = profile.Database.Trim(),
+            InitialCatalog = connectToMaster ? "master" : profile.Database.Trim(),
             IntegratedSecurity = profile.UseIntegratedSecurity,
             Encrypt = true,
             TrustServerCertificate = profile.TrustServerCertificate,

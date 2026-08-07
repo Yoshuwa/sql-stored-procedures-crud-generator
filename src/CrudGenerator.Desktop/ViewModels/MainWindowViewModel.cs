@@ -8,7 +8,8 @@ namespace CrudGenerator.Desktop.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly ICrudGeneratorService _service;
-    private readonly List<DatabaseObject> _allObjects = [];
+    private readonly List<StoredProcedureInfo> _allProcedures = [];
+    private bool _suppressDatabaseSelection;
 
     public MainWindowViewModel() : this(null) { }
 
@@ -17,16 +18,17 @@ public partial class MainWindowViewModel : ViewModelBase
         _service = service ?? new DesignTimeCrudGeneratorService();
     }
 
-    public ObservableCollection<DatabaseObject> Objects { get; } = [];
+    public ObservableCollection<string> Databases { get; } = [];
+    public ObservableCollection<StoredProcedureInfo> Procedures { get; } = [];
 
     [ObservableProperty] private string _server = @"(localdb)\MSSQLLocalDB";
-    [ObservableProperty] private string _database = "";
+    [ObservableProperty] private string? _selectedDatabase;
     [ObservableProperty] private bool _useIntegratedSecurity = true;
     [ObservableProperty] private string _userName = "";
     [ObservableProperty] private string _password = "";
     [ObservableProperty] private string _searchText = "";
-    [ObservableProperty] private DatabaseObject? _selectedObject;
-    [ObservableProperty] private string _status = "Enter a target database, then connect.";
+    [ObservableProperty] private StoredProcedureInfo? _selectedProcedure;
+    [ObservableProperty] private string _status = "Enter a SQL Server instance, then load databases.";
     [ObservableProperty] private string _generatedSql = "-- Generated SQL will appear here.";
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isGeneratorInstalled;
@@ -44,9 +46,18 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _generateDeleteMultiple = true;
     [ObservableProperty] private bool _generateSearch = true;
 
-    public string GeneratorStatus => IsGeneratorInstalled ? "sp_CRUDGen installed" : "sp_CRUDGen not found";
+    public string GeneratorStatus => string.IsNullOrWhiteSpace(SelectedDatabase)
+        ? "No database selected"
+        : IsGeneratorInstalled ? "sp_CRUDGen installed" : "sp_CRUDGen not found";
 
     partial void OnIsGeneratorInstalledChanged(bool value) => OnPropertyChanged(nameof(GeneratorStatus));
+
+    partial void OnSelectedDatabaseChanged(string? value)
+    {
+        OnPropertyChanged(nameof(GeneratorStatus));
+        if (!_suppressDatabaseSelection && !string.IsNullOrWhiteSpace(value))
+            _ = LoadSelectedDatabaseAsync();
+    }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
@@ -55,17 +66,28 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await RunAsync(async () =>
         {
-            var profile = CreateProfile();
-            Status = "Connecting…";
-            await _service.TestConnectionAsync(profile);
-            var objects = await _service.GetObjectsAsync(profile);
-            IsGeneratorInstalled = await _service.IsGeneratorInstalledAsync(profile);
-            _allObjects.Clear();
-            _allObjects.AddRange(objects);
-            ApplyFilter();
-            Status = $"Connected to {profile.Database}. Found {objects.Count} tables and views.";
+            Status = $"Connecting to {Server} and loading databases…";
+            var databases = await _service.GetDatabasesAsync(CreateServerProfile());
+            _suppressDatabaseSelection = true;
+            SelectedDatabase = null;
+            Databases.Clear();
+            foreach (var database in databases) Databases.Add(database);
+            SelectedDatabase = Databases.FirstOrDefault();
+            _suppressDatabaseSelection = false;
+            if (SelectedDatabase is null)
+            {
+                ClearDatabaseDetails();
+                Status = $"Connected to {Server}, but no accessible online databases were found.";
+                return;
+            }
+            await LoadDatabaseDetailsCoreAsync();
         });
     }
+
+    private Task LoadSelectedDatabaseAsync() => RunAsync(LoadDatabaseDetailsCoreAsync);
+
+    [RelayCommand]
+    private Task RefreshDatabaseAsync() => LoadSelectedDatabaseAsync();
 
     [RelayCommand]
     private async Task GeneratePreviewAsync()
@@ -73,10 +95,10 @@ public partial class MainWindowViewModel : ViewModelBase
         await RunAsync(async () =>
         {
             EnsureReady();
-            Status = $"Generating preview for {SelectedObject!.DisplayName}…";
-            var result = await _service.GenerateAsync(CreateProfile(), SelectedObject, CreateOptions(), false);
+            Status = $"Generating a database-wide preview for {SelectedDatabase}…";
+            var result = await _service.GenerateAsync(CreateProfile(), CreateOptions(), false);
             GeneratedSql = result.HasSql ? result.Sql : "-- sp_CRUDGen completed without returning preview text.";
-            Status = $"Preview generated for {SelectedObject.DisplayName}. No database procedures were changed.";
+            Status = $"Preview generated for {SelectedDatabase}. No database procedures were changed.";
         });
     }
 
@@ -88,11 +110,12 @@ public partial class MainWindowViewModel : ViewModelBase
             EnsureReady();
             if (!ConfirmDatabaseChanges)
                 throw new InvalidOperationException("Confirm the database change before creating procedures.");
-            Status = $"Creating procedures for {SelectedObject!.DisplayName}…";
-            var result = await _service.GenerateAsync(CreateProfile(), SelectedObject, CreateOptions(), true);
+            Status = $"Creating procedures for all eligible objects in {SelectedDatabase}…";
+            var result = await _service.GenerateAsync(CreateProfile(), CreateOptions(), true);
             if (result.HasSql) GeneratedSql = result.Sql;
             ConfirmDatabaseChanges = false;
-            Status = $"Stored procedures created for {SelectedObject.DisplayName}.";
+            await LoadDatabaseDetailsCoreAsync();
+            Status = $"Stored procedures created and refreshed for {SelectedDatabase}.";
         });
     }
 
@@ -105,11 +128,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 throw new InvalidOperationException("Confirm the database change before installing sp_CRUDGen.");
             var path = Path.Combine(AppContext.BaseDirectory, "sql", "sp_CRUDGen.sql");
             if (!File.Exists(path)) throw new FileNotFoundException("The bundled sp_CRUDGen.sql file was not found.", path);
-            Status = $"Installing sp_CRUDGen in {Database}…";
+            Status = $"Installing sp_CRUDGen in {SelectedDatabase}…";
             await _service.InstallGeneratorAsync(CreateProfile(), await File.ReadAllTextAsync(path));
             IsGeneratorInstalled = true;
             ConfirmDatabaseChanges = false;
-            Status = $"sp_CRUDGen installed in {Database}.";
+            Status = $"sp_CRUDGen installed in {SelectedDatabase}.";
         });
     }
 
@@ -125,7 +148,10 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     private ConnectionProfile CreateProfile() =>
-        new(Server, Database, UseIntegratedSecurity, UserName, Password);
+        new(Server, SelectedDatabase ?? "", UseIntegratedSecurity, UserName, Password);
+
+    private ConnectionProfile CreateServerProfile() =>
+        new(Server, "", UseIntegratedSecurity, UserName, Password);
 
     private GeneratorOptions CreateOptions() => new()
     {
@@ -145,29 +171,56 @@ public partial class MainWindowViewModel : ViewModelBase
     private void EnsureReady()
     {
         if (!IsGeneratorInstalled) throw new InvalidOperationException("Install sp_CRUDGen in the target database first.");
-        if (SelectedObject is null) throw new InvalidOperationException("Select a table or view first.");
+        if (string.IsNullOrWhiteSpace(SelectedDatabase)) throw new InvalidOperationException("Select a database first.");
         if (!CreateOptions().HasSelection) throw new InvalidOperationException("Select at least one procedure type.");
+    }
+
+    private async Task LoadDatabaseDetailsCoreAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedDatabase))
+        {
+            ClearDatabaseDetails();
+            return;
+        }
+
+        var profile = CreateProfile();
+        Status = $"Loading sp_CRUDGen procedures from {profile.Database}…";
+        IsGeneratorInstalled = await _service.IsGeneratorInstalledAsync(profile);
+        var procedures = await _service.GetGeneratedProceduresAsync(profile);
+        _allProcedures.Clear();
+        _allProcedures.AddRange(procedures);
+        ApplyFilter();
+        Status = $"Connected to {profile.Database}. Found {procedures.Count} procedure(s) created by sp_CRUDGen.";
+    }
+
+    private void ClearDatabaseDetails()
+    {
+        IsGeneratorInstalled = false;
+        _allProcedures.Clear();
+        Procedures.Clear();
+        SelectedProcedure = null;
     }
 
     private void ApplyFilter()
     {
-        var selected = SelectedObject;
+        var selected = SelectedProcedure;
         var matches = string.IsNullOrWhiteSpace(SearchText)
-            ? _allObjects
-            : _allObjects.Where(item => item.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
-        Objects.Clear();
-        foreach (var item in matches) Objects.Add(item);
-        if (selected is not null && Objects.Contains(selected)) SelectedObject = selected;
+            ? _allProcedures
+            : _allProcedures.Where(item => item.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        Procedures.Clear();
+        foreach (var item in matches) Procedures.Add(item);
+        if (selected is not null && Procedures.Contains(selected)) SelectedProcedure = selected;
     }
 
     private sealed class DesignTimeCrudGeneratorService : ICrudGeneratorService
     {
-        public Task TestConnectionAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<DatabaseObject>> GetObjectsAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<DatabaseObject>>([new("dbo", "Customers", DatabaseObjectType.Table), new("sales", "Orders", DatabaseObjectType.View)]);
+        public Task<IReadOnlyList<string>> GetDatabasesAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(["AdventureWorks", "Inventory"]);
+        public Task<IReadOnlyList<StoredProcedureInfo>> GetGeneratedProceduresAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<StoredProcedureInfo>>([new("dbo", "CustomerRead", DateTime.Now), new("sales", "OrderUpdate", DateTime.Now)]);
         public Task<bool> IsGeneratorInstalledAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task InstallGeneratorAsync(ConnectionProfile profile, string installerScript, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<GenerationResult> GenerateAsync(ConnectionProfile profile, DatabaseObject databaseObject, GeneratorOptions options, bool createProcedures, CancellationToken cancellationToken = default) =>
+        public Task<GenerationResult> GenerateAsync(ConnectionProfile profile, GeneratorOptions options, bool createProcedures, CancellationToken cancellationToken = default) =>
             Task.FromResult(new GenerationResult("-- Preview", []));
     }
 }

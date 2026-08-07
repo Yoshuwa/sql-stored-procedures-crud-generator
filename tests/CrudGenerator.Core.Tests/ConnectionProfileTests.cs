@@ -21,6 +21,14 @@ public sealed class ConnectionProfileTests
         Assert.Contains("user name", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ValidateServer_DoesNotRequireADatabase()
+    {
+        var subject = new ConnectionProfile("localhost", "", true);
+
+        subject.ValidateServer();
+    }
+
     [Theory]
     [InlineData("", "Example")]
     [InlineData("localhost", "")]

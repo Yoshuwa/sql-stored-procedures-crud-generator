@@ -38,35 +38,39 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="330,*" Margin="18">
+    <Grid Grid.Row="1" ColumnDefinitions="360,*" Margin="18">
       <Grid RowDefinitions="Auto,*">
         <Border Classes="card" Margin="0,0,0,16">
           <StackPanel Spacing="8">
             <TextBlock Classes="section" Text="Connection" />
             <TextBlock Text="Server" />
             <TextBox Text="{Binding Server}" Watermark="localhost" />
-            <TextBlock Text="Database" />
-            <TextBox Text="{Binding Database}" Watermark="YourDatabase" />
             <CheckBox Content="Windows authentication" IsChecked="{Binding UseIntegratedSecurity}" />
             <Grid ColumnDefinitions="*,*" IsVisible="{Binding !UseIntegratedSecurity}">
               <TextBox Text="{Binding UserName}" Watermark="User name" Margin="0,0,4,0" />
               <TextBox Grid.Column="1" Text="{Binding Password}" PasswordChar="●" Watermark="Password" />
             </Grid>
             <Button Classes="primary" Command="{Binding ConnectCommand}" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center" Content="Connect and load objects" />
+                    HorizontalContentAlignment="Center" Content="Connect and load databases" />
+            <TextBlock Text="Database" Margin="0,4,0,0" />
+            <ComboBox ItemsSource="{Binding Databases}" SelectedItem="{Binding SelectedDatabase}"
+                      PlaceholderText="Select a database" IsEnabled="{Binding !IsBusy}" />
           </StackPanel>
         </Border>
 
         <Border Grid.Row="1" Classes="card">
-          <Grid RowDefinitions="Auto,Auto,*">
-            <TextBlock Classes="section" Text="Tables and views" />
-            <TextBox Grid.Row="1" Text="{Binding SearchText}" Watermark="Filter objects…" Margin="0,0,0,10" />
-            <ListBox Grid.Row="2" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}">
+            <Grid RowDefinitions="Auto,Auto,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="section" Text="sp_CRUDGen procedures" />
+              <Button Grid.Column="1" Command="{Binding RefreshDatabaseCommand}" Content="Refresh" Padding="10,4" />
+            </Grid>
+            <TextBox Grid.Row="1" Text="{Binding SearchText}" Watermark="Filter procedures…" Margin="0,0,0,10" />
+            <ListBox Grid.Row="2" ItemsSource="{Binding Procedures}" SelectedItem="{Binding SelectedProcedure}">
               <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="core:DatabaseObject">
+                <DataTemplate x:DataType="core:StoredProcedureInfo">
                   <Grid ColumnDefinitions="*,Auto" Margin="4,6">
                     <TextBlock Text="{Binding DisplayName}" />
-                    <TextBlock Grid.Column="1" Text="{Binding Type}" Opacity="0.55" FontSize="11" />
+                    <TextBlock Grid.Column="1" Text="Generated" Opacity="0.55" FontSize="11" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -80,6 +84,8 @@
           <Grid ColumnDefinitions="2*,Auto">
             <StackPanel>
               <TextBlock Classes="section" Text="Procedure types" />
+              <TextBlock Text="Selections apply to every eligible table and view in the chosen database."
+                         Opacity="0.6" FontSize="11" Margin="0,0,0,10" />
               <WrapPanel Orientation="Horizontal">
                 <CheckBox Content="Create" IsChecked="{Binding GenerateCreate}" Margin="0,0,16,8" />
                 <CheckBox Content="Create multiple" IsChecked="{Binding GenerateCreateMultiple}" Margin="0,0,16,8" />
@@ -95,11 +101,11 @@
               </WrapPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Width="215" Spacing="8" Margin="20,0,0,0">
-              <Button Classes="primary" Command="{Binding GeneratePreviewCommand}" Content="Generate safe preview"
+              <Button Classes="primary" Command="{Binding GeneratePreviewCommand}" Content="Preview database-wide SQL"
                       HorizontalContentAlignment="Center" />
               <Button Command="{Binding InstallGeneratorCommand}" Content="Install / update generator"
                       HorizontalContentAlignment="Center" />
-              <Button Command="{Binding CreateProceduresCommand}" Content="Create procedures"
+              <Button Command="{Binding CreateProceduresCommand}" Content="Create all procedures"
                       HorizontalContentAlignment="Center" />
               <CheckBox Content="I confirm database changes" IsChecked="{Binding ConfirmDatabaseChanges}" FontSize="11" />
             </StackPanel>
