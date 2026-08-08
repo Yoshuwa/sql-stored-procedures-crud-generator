@@ -12,6 +12,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ICrudGeneratorService _service;
     private readonly List<StoredProcedureInfo> _allProcedures = [];
     private bool _suppressDatabaseSelection;
+    private int _procedureLoadVersion;
 
     public MainWindowViewModel() : this(null) { }
 
@@ -24,6 +25,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ObservableCollection<DatabaseTable> Tables { get; } = [];
     public ObservableCollection<StoredProcedureInfo> Procedures { get; } = [];
     public ObservableCollection<ProcedureTestResult> TestResults { get; } = [];
+    public ObservableCollection<StoredProcedureParameter> SelectedProcedureParameters { get; } = [];
     public IReadOnlyList<string> TimeFunctions { get; } =
         ["SYSDATETIMEOFFSET()", "SYSUTCDATETIME()", "SYSDATETIME()", "GETUTCDATE()", "GETDATE()", "CURRENT_TIMESTAMP"];
 
@@ -35,6 +37,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _password = "";
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private StoredProcedureInfo? _selectedProcedure;
+    [ObservableProperty] private string _selectedProcedureDefinition = "-- Select a generated procedure to inspect its definition.";
+    [ObservableProperty] private string _selectedProcedureLoadStatus = "Select a generated procedure to inspect it.";
+    [ObservableProperty] private bool _isProcedureLoading;
+    [ObservableProperty] private ProcedureTestResult? _selectedProcedureTestResult;
+    [ObservableProperty] private bool _isProcedureInspectorOpen;
     [ObservableProperty] private string _status = "Enter a SQL Server instance, then load databases.";
     [ObservableProperty] private string _generatedSql = "-- Generated SQL will appear here.";
     [ObservableProperty] private bool _isBusy;
@@ -85,6 +92,17 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool CanCreate => CanGenerate;
     public bool CanTest => CanGenerate && HasGeneratedProcedures;
     public bool CanInstall => !IsBusy && !string.IsNullOrWhiteSpace(SelectedDatabase);
+    public string SelectedProcedureTitle => SelectedProcedure?.DisplayName ?? "No procedure selected";
+    public string SelectedProcedureModifiedText => SelectedProcedure is null
+        ? string.Empty
+        : $"Modified {SelectedProcedure.ModifiedAt:g}";
+    public string SelectedProcedureParameterCountText => SelectedProcedureParameters.Count == 1
+        ? "1 parameter"
+        : $"{SelectedProcedureParameters.Count} parameters";
+    public bool HasSelectedProcedure => SelectedProcedure is not null;
+    public bool HasSelectedProcedureParameters => SelectedProcedureParameters.Count > 0;
+    public bool HasSelectedProcedureTestResult => SelectedProcedureTestResult is not null;
+    public bool CanTestSelectedProcedure => !IsBusy && !IsProcedureLoading && SelectedProcedure is not null;
 
     partial void OnIsGeneratorInstalledChanged(bool value)
     {
@@ -93,6 +111,8 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     partial void OnIsBusyChanged(bool value) => NotifyActionState();
+
+    partial void OnIsProcedureLoadingChanged(bool value) => NotifyActionState();
 
     partial void OnSelectedDatabaseChanged(string? value)
     {
@@ -114,6 +134,27 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedProcedureChanged(StoredProcedureInfo? value)
+    {
+        var loadVersion = ++_procedureLoadVersion;
+        SelectedProcedureParameters.Clear();
+        SelectedProcedureTestResult = null;
+        SelectedProcedureDefinition = "-- Select a generated procedure to inspect its definition.";
+        SelectedProcedureLoadStatus = value is null
+            ? "Select a generated procedure to inspect it."
+            : $"Loading {value.DisplayName}…";
+        OnPropertyChanged(nameof(SelectedProcedureTitle));
+        OnPropertyChanged(nameof(SelectedProcedureModifiedText));
+        OnPropertyChanged(nameof(SelectedProcedureParameterCountText));
+        OnPropertyChanged(nameof(HasSelectedProcedure));
+        OnPropertyChanged(nameof(HasSelectedProcedureParameters));
+        OnPropertyChanged(nameof(HasSelectedProcedureTestResult));
+        NotifyActionState();
+        if (value is null) return;
+        IsProcedureInspectorOpen = true;
+        _ = LoadSelectedProcedureAsync(value, loadVersion);
+    }
 
     [RelayCommand]
     private async Task ConnectAsync()
@@ -195,6 +236,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task TestSelectedProcedureAsync()
+    {
+        var procedure = SelectedProcedure;
+        if (procedure is null) return;
+        await RunAsync(async () =>
+        {
+            Status = $"Validating {procedure.DisplayName}…";
+            var result = await _service.TestGeneratedProcedureAsync(CreateProfile(), procedure);
+            if (SelectedProcedure != procedure) return;
+            SelectedProcedureTestResult = result;
+            OnPropertyChanged(nameof(HasSelectedProcedureTestResult));
+            IsProcedureInspectorOpen = true;
+            Status = result.Passed
+                ? $"{procedure.DisplayName} passed non-destructive validation."
+                : $"{procedure.DisplayName} failed validation: {result.Message}";
+        });
+    }
+
+    [RelayCommand]
     private async Task InstallGeneratorAsync()
     {
         await RunAsync(async () =>
@@ -214,6 +274,37 @@ public partial class MainWindowViewModel : ViewModelBase
         GeneratedSql = "-- Generated SQL will appear here.";
         TestResults.Clear();
         SelectedOutputTabIndex = 0;
+    }
+
+    [RelayCommand]
+    private void CloseProcedureInspector() => IsProcedureInspectorOpen = false;
+
+    private async Task LoadSelectedProcedureAsync(StoredProcedureInfo procedure, int loadVersion)
+    {
+        IsProcedureLoading = true;
+        try
+        {
+            var details = await _service.GetStoredProcedureDetailsAsync(CreateProfile(), procedure);
+            if (loadVersion != _procedureLoadVersion || SelectedProcedure != procedure) return;
+            SelectedProcedureDefinition = details.Definition;
+            SelectedProcedureParameters.Clear();
+            foreach (var parameter in details.Parameters) SelectedProcedureParameters.Add(parameter);
+            SelectedProcedureLoadStatus = details.Parameters.Count == 0
+                ? "Definition loaded. This procedure has no parameters."
+                : $"Definition and {details.Parameters.Count} parameter(s) loaded.";
+            OnPropertyChanged(nameof(SelectedProcedureParameterCountText));
+            OnPropertyChanged(nameof(HasSelectedProcedureParameters));
+        }
+        catch (Exception exception)
+        {
+            if (loadVersion != _procedureLoadVersion) return;
+            SelectedProcedureDefinition = $"-- {exception.Message}";
+            SelectedProcedureLoadStatus = exception.Message;
+        }
+        finally
+        {
+            if (loadVersion == _procedureLoadVersion) IsProcedureLoading = false;
+        }
     }
 
     [RelayCommand]
@@ -357,6 +448,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanCreate));
         OnPropertyChanged(nameof(CanTest));
         OnPropertyChanged(nameof(CanInstall));
+        OnPropertyChanged(nameof(CanTestSelectedProcedure));
     }
 
     private sealed class DesignTimeCrudGeneratorService : ICrudGeneratorService
@@ -367,11 +459,16 @@ public partial class MainWindowViewModel : ViewModelBase
             Task.FromResult<IReadOnlyList<DatabaseTable>>([new("dbo", "Customer"), new("sales", "Order")]);
         public Task<IReadOnlyList<StoredProcedureInfo>> GetGeneratedProceduresAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<StoredProcedureInfo>>([new("dbo", "CustomerRead", DateTime.Now), new("sales", "OrderUpdate", DateTime.Now)]);
+        public Task<StoredProcedureDetails> GetStoredProcedureDetailsAsync(ConnectionProfile profile, StoredProcedureInfo procedure, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new StoredProcedureDetails(procedure, "CREATE PROCEDURE dbo.CustomerRead @CustomerId int AS SELECT @CustomerId;",
+                [new("@CustomerId", "int", 4, 10, 0, false)]));
         public Task<bool> IsGeneratorInstalledAsync(ConnectionProfile profile, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task InstallGeneratorAsync(ConnectionProfile profile, string installerScript, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<GenerationResult> GenerateAsync(ConnectionProfile profile, DatabaseTable table, GeneratorOptions options, bool createProcedures, CancellationToken cancellationToken = default) =>
             Task.FromResult(new GenerationResult("-- Preview", []));
         public Task<IReadOnlyList<ProcedureTestResult>> TestGeneratedProceduresAsync(ConnectionProfile profile, DatabaseTable table, GeneratorOptions options, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ProcedureTestResult>>([new($"{table.DisplayName}Create", true, "Validation passed.")]);
+        public Task<ProcedureTestResult> TestGeneratedProcedureAsync(ConnectionProfile profile, StoredProcedureInfo procedure, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ProcedureTestResult(procedure.DisplayName, true, "Validation passed."));
     }
 }

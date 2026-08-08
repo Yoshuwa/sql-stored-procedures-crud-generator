@@ -29,6 +29,8 @@ preview, create, and validate that table's CRUD procedures.
 - Editable naming, audit-column, timestamp, and search-separator parameters
 - Professional dark utility workspace with contextual actions and status
 - Table-scoped generated-procedure browser with filtering and empty states
+- Click-through procedure inspector for installed SQL, parameter types and directions,
+  and focused non-destructive testing
 - Separate SQL output and structured validation-result views
 - Safe preview mode (`@GenerateStoredProcedures = 0`)
 - Non-destructive generated-procedure validation
@@ -102,6 +104,8 @@ original T-SQL procedure as the generation engine:
    shown in the SQL preview panel.
 8. Validation confirms each expected module exists, retains the upstream marker,
    and can be rebound by `sys.sp_refreshsqlmodule` in a rolled-back transaction.
+9. Selecting a generated procedure reads its installed definition from
+   `sys.sql_modules` and its ordered parameter metadata from `sys.parameters`.
 
 The generator remains installed and executed in the target database, as the
 upstream project recommends. SQL Stored Procedures CRUD Generator never installs it in `master`.

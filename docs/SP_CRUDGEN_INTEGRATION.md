@@ -105,6 +105,15 @@ The test action does not execute CRUD procedures or modify application data. It:
 3. Calls `sys.sp_refreshsqlmodule` to let SQL Server rebind the module.
 4. Rolls back the metadata-refresh transaction and reports a pass or SQL error.
 
+### Inspect one generated procedure
+
+Selecting a generated procedure opens a dedicated inspector workspace. The app
+queries `sys.sql_modules` for the installed definition and `sys.parameters` for
+ordered names, SQL types, sizes, precision, scale, and input/output direction.
+The focused **Test selected** action performs the same marker and rolled-back
+`sys.sp_refreshsqlmodule` validation for only that module. It never executes the
+generated CRUD procedure or changes application data.
+
 ## Upstream updates
 
 Generator improvements should normally be contributed to the

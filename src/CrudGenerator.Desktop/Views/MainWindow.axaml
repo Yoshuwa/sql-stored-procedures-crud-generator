@@ -4,7 +4,7 @@
         xmlns:core="using:CrudGenerator.Core"
         x:Class="CrudGenerator.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="840" Height="760" MinWidth="760" MinHeight="600"
+        Width="840" Height="820" MinWidth="760" MinHeight="600"
         Title="SQL Stored Procedures CRUD Generator">
   <Window.Styles>
     <Style Selector="TextBlock.sectionTitle">
@@ -54,6 +54,8 @@
     <Style Selector="TabItem">
       <Setter Property="FontSize" Value="13" />
       <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="Margin" Value="0,0,4,0" />
     </Style>
     <Style Selector="UniformGrid.procedureTypes > CheckBox">
       <Setter Property="Width" Value="150" />
@@ -102,7 +104,8 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Row="1" Classes="card" Margin="0,0,0,12">
+        <Border Grid.Row="1" Classes="card" Margin="0,0,0,12"
+                IsVisible="{Binding !IsProcedureInspectorOpen}">
           <StackPanel Spacing="8">
             <TextBlock Classes="sectionTitle" Text="Generation target" />
             <TextBlock Classes="hint" Text="Database" />
@@ -120,7 +123,8 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" Classes="card" Padding="0">
+        <Border Grid.Row="2" Classes="card" Padding="0"
+                IsVisible="{Binding !IsProcedureInspectorOpen}">
           <Grid RowDefinitions="Auto,Auto,*">
             <Grid Margin="14,14,14,10" ColumnDefinitions="*,Auto">
               <StackPanel>
@@ -337,6 +341,108 @@
               </Grid>
             </TabItem>
           </TabControl>
+        </Border>
+
+        <Border Grid.Row="1" Grid.RowSpan="2" Classes="card" Padding="14"
+                IsVisible="{Binding IsProcedureInspectorOpen}">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+              <StackPanel Spacing="2">
+                <TextBlock Text="{Binding SelectedProcedureTitle}" Classes="sectionTitle" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding SelectedProcedureModifiedText}" Classes="hint" />
+                  <TextBlock Text="•" Classes="hint" IsVisible="{Binding HasSelectedProcedure}" />
+                  <TextBlock Text="{Binding SelectedProcedureLoadStatus}" Classes="hint" />
+                </StackPanel>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <ProgressBar Width="80" Height="4" IsIndeterminate="True"
+                             IsVisible="{Binding IsProcedureLoading}" VerticalAlignment="Center" />
+                <Button Classes="quiet" Command="{Binding CloseProcedureInspectorCommand}" Content="Back" />
+                <Button Classes="primary" Command="{Binding TestSelectedProcedureCommand}"
+                        IsEnabled="{Binding CanTestSelectedProcedure}" Content="Test selected"
+                        ToolTip.Tip="Validate existence, sp_CRUDGen marker, and SQL module binding without executing CRUD logic" />
+              </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="3*,2*">
+              <Border Background="#090C11" BorderBrush="#30394A" BorderThickness="1"
+                      CornerRadius="5" Padding="0" Margin="0,0,10,0">
+                <Grid RowDefinitions="Auto,*">
+                  <Border Background="#121821" BorderBrush="#30394A" BorderThickness="0,0,0,1" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="Definition" FontWeight="SemiBold" />
+                      <TextBlock Text="Installed SQL module" Classes="hint" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Border>
+                  <TextBox Grid.Row="1" Text="{Binding SelectedProcedureDefinition}"
+                           AcceptsReturn="True" IsReadOnly="True" Background="Transparent"
+                           BorderThickness="0" FontFamily="Cascadia Mono,Consolas,monospace"
+                           FontSize="11" Padding="12" TextWrapping="NoWrap"
+                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                </Grid>
+              </Border>
+
+              <Border Grid.Column="1" Background="#11161E" BorderBrush="#30394A"
+                      BorderThickness="1" CornerRadius="5" Padding="0">
+                <Grid RowDefinitions="Auto,*,Auto">
+                  <Grid ColumnDefinitions="*,Auto" Background="#121821" Margin="1">
+                    <TextBlock Text="Parameters" FontWeight="SemiBold" Margin="11,8" />
+                    <TextBlock Grid.Column="1" Text="{Binding SelectedProcedureParameterCountText}"
+                               Classes="hint" Margin="8" VerticalAlignment="Center" />
+                  </Grid>
+
+                  <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding SelectedProcedureParameters}" Background="Transparent">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="core:StoredProcedureParameter">
+                          <Border BorderBrush="#2A3342" BorderThickness="0,0,0,1" Padding="10,9">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Direction}" Classes="hint" />
+                              </StackPanel>
+                              <Border Grid.Column="1" Background="#25324A" CornerRadius="8"
+                                      Padding="8,3" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DisplayType}" Foreground="#C8D5F0"
+                                           FontSize="10" FontFamily="Cascadia Mono,Consolas,monospace" />
+                              </Border>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel IsVisible="{Binding !HasSelectedProcedureParameters}"
+                                VerticalAlignment="Center" HorizontalAlignment="Center"
+                                MaxWidth="230" Spacing="5">
+                      <TextBlock Text="No parameters to display" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center" />
+                      <TextBlock Text="Select a procedure, or this module may not accept parameters."
+                                 Classes="hint" TextAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Grid>
+
+                  <Border Grid.Row="2" Margin="10" Padding="10" CornerRadius="5"
+                          BorderBrush="#2A3342" BorderThickness="1"
+                          IsVisible="{Binding HasSelectedProcedureTestResult}">
+                    <Grid ColumnDefinitions="Auto,*">
+                      <Border Background="#1D513C" CornerRadius="9" Padding="8,3"
+                              VerticalAlignment="Top" IsVisible="{Binding SelectedProcedureTestResult.Passed}">
+                        <TextBlock Text="PASS" Foreground="#8CE2B9" FontSize="10" FontWeight="Bold" />
+                      </Border>
+                      <Border Background="#5A2930" CornerRadius="9" Padding="8,3"
+                              VerticalAlignment="Top" IsVisible="{Binding !SelectedProcedureTestResult.Passed}">
+                        <TextBlock Text="FAIL" Foreground="#FF9CA8" FontSize="10" FontWeight="Bold" />
+                      </Border>
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedProcedureTestResult.Message}"
+                                 Classes="hint" Margin="9,0,0,0" TextWrapping="Wrap" />
+                    </Grid>
+                  </Border>
+                </Grid>
+              </Border>
+            </Grid>
+          </Grid>
         </Border>
       </Grid>
     </Grid>

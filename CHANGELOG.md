@@ -8,6 +8,8 @@ All notable changes to this project will be documented here. Releases follow
 ### Added
 
 - Target-aware confirmation prompts for generator installation and stored-procedure creation.
+- A generated-procedure inspector with the installed SQL definition, ordered
+  parameter metadata, and focused non-destructive validation.
 
 ### Changed
 

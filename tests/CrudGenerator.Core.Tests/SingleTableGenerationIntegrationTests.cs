@@ -54,6 +54,14 @@ public sealed class SingleTableGenerationIntegrationTests
             Assert.Contains(procedures, item => item.DisplayName == "dbo.WidgetRead");
             Assert.DoesNotContain(procedures, item => item.DisplayName == "dbo.sp_CRUDGen");
 
+            var readProcedure = Assert.Single(procedures, item => item.DisplayName == "dbo.WidgetRead");
+            var details = await service.GetStoredProcedureDetailsAsync(profile, readProcedure);
+            Assert.Contains("CREATE PROCEDURE [dbo].[WidgetRead]", details.Definition, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(details.Parameters, parameter => parameter.Name == "@WidgetId");
+
+            var selectedTest = await service.TestGeneratedProcedureAsync(profile, readProcedure);
+            Assert.True(selectedTest.Passed, selectedTest.Message);
+
             var tests = await service.TestGeneratedProceduresAsync(profile, table, options);
             Assert.Equal(2, tests.Count);
             Assert.All(tests, result => Assert.True(result.Passed, result.Message));
