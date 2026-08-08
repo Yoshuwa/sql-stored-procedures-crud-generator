@@ -68,9 +68,9 @@ and verify it against `SHA256SUMS.txt`. See the
 
 1. **Preview selected table SQL** calls `sp_CRUDGen` with
    `@GenerateStoredProcedures = 0` and the selected `schema.table`.
-2. **Install / update generator** and **Create procedures** require the
-   **I confirm database changes** checkbox.
-3. The confirmation resets after each database-changing action.
+2. **Install / update generator** and **Create procedures** open a confirmation
+   prompt showing the exact target database and, for creation, the selected table.
+3. Nothing changes unless the user confirms that individual action in the prompt.
 4. **Test generated procedures** checks the expected procedures and upstream markers,
    then asks SQL Server to rebind each module inside a transaction that is rolled back.
    The generated procedures are not executed by this validation.

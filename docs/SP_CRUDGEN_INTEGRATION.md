@@ -40,8 +40,8 @@ END;
 
 The **Install / update generator** action reads the bundled SQL file, separates
 the script on standalone `GO` lines, and executes each batch in order against
-the selected database. The user must first select **I confirm database
-changes**. Installation should never target `master`.
+the selected database. Before execution, the app opens a confirmation prompt
+that names the target database. Installation should never target `master`.
 
 The bundled file is upstream code and retains its original MIT license and
 copyright. See `THIRD_PARTY_NOTICES.md`.
@@ -85,14 +85,16 @@ preview panel.
 
 ### Create procedures
 
-After the user confirms database changes, create mode calls with:
+After the user confirms the target database and table in the action prompt,
+create mode calls with:
 
 ```sql
 @GenerateStoredProcedures = 1
 ```
 
 The generator then creates or regenerates the selected procedure types using
-its own upstream behavior. The confirmation is cleared after the operation.
+its own upstream behavior. A new prompt is required for every database-changing
+action.
 
 ### Test generated procedures
 

@@ -5,6 +5,15 @@ All notable changes to this project will be documented here. Releases follow
 
 ## [Unreleased]
 
+### Added
+
+- Target-aware confirmation prompts for generator installation and stored-procedure creation.
+
+### Changed
+
+- Database-changing actions now request confirmation when invoked instead of using
+  a persistent confirmation checkbox.
+
 ## [0.4.0] - 2026-08-07
 
 ### Added

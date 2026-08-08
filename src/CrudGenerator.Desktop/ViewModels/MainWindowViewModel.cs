@@ -39,7 +39,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _generatedSql = "-- Generated SQL will appear here.";
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isGeneratorInstalled;
-    [ObservableProperty] private bool _confirmDatabaseChanges;
     [ObservableProperty] private int _selectedOutputTabIndex;
 
     [ObservableProperty] private bool _generateCreate = true;
@@ -83,9 +82,9 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool HasGeneratedProcedures => SelectedTable is not null && _allProcedures.Any(IsForSelectedTable);
     public bool HasVisibleProcedures => Procedures.Count > 0;
     public bool CanGenerate => !IsBusy && IsGeneratorInstalled && HasSelectedTable;
-    public bool CanCreate => CanGenerate && ConfirmDatabaseChanges;
+    public bool CanCreate => CanGenerate;
     public bool CanTest => CanGenerate && HasGeneratedProcedures;
-    public bool CanInstall => !IsBusy && !string.IsNullOrWhiteSpace(SelectedDatabase) && ConfirmDatabaseChanges;
+    public bool CanInstall => !IsBusy && !string.IsNullOrWhiteSpace(SelectedDatabase);
 
     partial void OnIsGeneratorInstalledChanged(bool value)
     {
@@ -94,8 +93,6 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     partial void OnIsBusyChanged(bool value) => NotifyActionState();
-
-    partial void OnConfirmDatabaseChangesChanged(bool value) => NotifyActionState();
 
     partial void OnSelectedDatabaseChanged(string? value)
     {
@@ -166,14 +163,11 @@ public partial class MainWindowViewModel : ViewModelBase
         await RunAsync(async () =>
         {
             EnsureReady();
-            if (!ConfirmDatabaseChanges)
-                throw new InvalidOperationException("Confirm the database change before creating procedures.");
             var target = SelectedTable!;
             Status = $"Creating procedures for {target.DisplayName}…";
             var result = await _service.GenerateAsync(CreateProfile(), target, CreateOptions(), true);
             if (result.HasSql) GeneratedSql = result.Sql;
             SelectedOutputTabIndex = 0;
-            ConfirmDatabaseChanges = false;
             await LoadDatabaseDetailsCoreAsync();
             SelectedTable = Tables.FirstOrDefault(item => item.DisplayName == target.DisplayName);
             Status = $"Stored procedures created for {target.DisplayName}. Use Test generated procedures to validate them.";
@@ -205,14 +199,11 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await RunAsync(async () =>
         {
-            if (!ConfirmDatabaseChanges)
-                throw new InvalidOperationException("Confirm the database change before installing sp_CRUDGen.");
             var path = Path.Combine(AppContext.BaseDirectory, "sql", "sp_CRUDGen.sql");
             if (!File.Exists(path)) throw new FileNotFoundException("The bundled sp_CRUDGen.sql file was not found.", path);
             Status = $"Installing sp_CRUDGen in {SelectedDatabase}…";
             await _service.InstallGeneratorAsync(CreateProfile(), await File.ReadAllTextAsync(path));
             IsGeneratorInstalled = true;
-            ConfirmDatabaseChanges = false;
             Status = $"sp_CRUDGen installed in {SelectedDatabase}.";
         });
     }

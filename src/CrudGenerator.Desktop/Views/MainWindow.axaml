@@ -170,20 +170,26 @@
                          TextWrapping="Wrap" />
             </StackPanel>
             <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Classes="quiet" Command="{Binding InstallGeneratorCommand}" IsEnabled="{Binding CanInstall}"
+                <Button Classes="quiet" Click="OnInstallGeneratorClicked" IsEnabled="{Binding CanInstall}"
                         Content="Generator" Margin="0,0,8,8"
                         ToolTip.Tip="Install or update dbo.sp_CRUDGen in the selected database" />
                 <Button Classes="primary" Command="{Binding GeneratePreviewCommand}" IsEnabled="{Binding CanGenerate}"
                         Content="Preview" Margin="0,0,8,8" ToolTip.Tip="Generate SQL without creating procedures" />
-                <Button Classes="success" Command="{Binding CreateProceduresCommand}" IsEnabled="{Binding CanCreate}"
+                <Button Classes="success" Click="OnCreateProceduresClicked" IsEnabled="{Binding CanCreate}"
                         Content="Create" Margin="0,0,8,8"
                         ToolTip.Tip="Create or replace selected generated procedures" />
                 <Button Classes="quiet" Command="{Binding TestProceduresCommand}" IsEnabled="{Binding CanTest}"
                         Content="Validate" Margin="0,0,8,8"
                         ToolTip.Tip="Validate generated modules without executing CRUD operations" />
             </WrapPanel>
-            <CheckBox Grid.Row="2" Content="I confirm changes to the selected database"
-                      IsChecked="{Binding ConfirmDatabaseChanges}" Margin="0,8,0,0" FontSize="11" />
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="7" Margin="0,6,0,0">
+              <Border Width="18" Height="18" CornerRadius="9" Background="#25324A" VerticalAlignment="Center">
+                <TextBlock Text="i" Foreground="#AFC4F0" FontSize="11" FontWeight="Bold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <TextBlock Classes="hint" Text="Database-changing actions open a confirmation prompt."
+                         VerticalAlignment="Center" />
+            </StackPanel>
           </Grid>
         </Border>
 
