@@ -7,6 +7,8 @@ namespace CrudGenerator.Desktop.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private static readonly string[] KnownProcedureSuffixes =
+        ["Create", "CreateMultiple", "Read", "ReadEager", "Update", "UpdateMultiple", "Upsert", "Indate", "Delete", "DeleteMultiple", "Search"];
     private readonly ICrudGeneratorService _service;
     private readonly List<StoredProcedureInfo> _allProcedures = [];
     private bool _suppressDatabaseSelection;
@@ -21,6 +23,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ObservableCollection<string> Databases { get; } = [];
     public ObservableCollection<DatabaseTable> Tables { get; } = [];
     public ObservableCollection<StoredProcedureInfo> Procedures { get; } = [];
+    public ObservableCollection<ProcedureTestResult> TestResults { get; } = [];
     public IReadOnlyList<string> TimeFunctions { get; } =
         ["SYSDATETIMEOFFSET()", "SYSUTCDATETIME()", "SYSDATETIME()", "GETUTCDATE()", "GETDATE()", "CURRENT_TIMESTAMP"];
 
@@ -37,6 +40,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isGeneratorInstalled;
     [ObservableProperty] private bool _confirmDatabaseChanges;
+    [ObservableProperty] private int _selectedOutputTabIndex;
 
     [ObservableProperty] private bool _generateCreate = true;
     [ObservableProperty] private bool _generateCreateMultiple = true;
@@ -67,13 +71,49 @@ public partial class MainWindowViewModel : ViewModelBase
         ? "No database selected"
         : IsGeneratorInstalled ? "sp_CRUDGen installed" : "sp_CRUDGen not found";
 
-    partial void OnIsGeneratorInstalledChanged(bool value) => OnPropertyChanged(nameof(GeneratorStatus));
+    public string TargetSummary => SelectedTable is null
+        ? "Choose a database and table to begin"
+        : $"{SelectedDatabase}  /  {SelectedTable.DisplayName}";
+
+    public string ProcedureCountText => Procedures.Count == 1
+        ? "1 generated procedure"
+        : $"{Procedures.Count} generated procedures";
+
+    public bool HasSelectedTable => SelectedTable is not null;
+    public bool HasGeneratedProcedures => SelectedTable is not null && _allProcedures.Any(IsForSelectedTable);
+    public bool HasVisibleProcedures => Procedures.Count > 0;
+    public bool CanGenerate => !IsBusy && IsGeneratorInstalled && HasSelectedTable;
+    public bool CanCreate => CanGenerate && ConfirmDatabaseChanges;
+    public bool CanTest => CanGenerate && HasGeneratedProcedures;
+    public bool CanInstall => !IsBusy && !string.IsNullOrWhiteSpace(SelectedDatabase) && ConfirmDatabaseChanges;
+
+    partial void OnIsGeneratorInstalledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(GeneratorStatus));
+        NotifyActionState();
+    }
+
+    partial void OnIsBusyChanged(bool value) => NotifyActionState();
+
+    partial void OnConfirmDatabaseChangesChanged(bool value) => NotifyActionState();
 
     partial void OnSelectedDatabaseChanged(string? value)
     {
         OnPropertyChanged(nameof(GeneratorStatus));
+        OnPropertyChanged(nameof(TargetSummary));
+        NotifyActionState();
         if (!_suppressDatabaseSelection && !string.IsNullOrWhiteSpace(value))
             _ = LoadSelectedDatabaseAsync();
+    }
+
+    partial void OnSelectedTableChanged(DatabaseTable? value)
+    {
+        SelectedProcedure = null;
+        TestResults.Clear();
+        ApplyFilter();
+        OnPropertyChanged(nameof(TargetSummary));
+        OnPropertyChanged(nameof(HasSelectedTable));
+        NotifyActionState();
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
@@ -115,6 +155,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Status = $"Generating a preview for {SelectedTable!.DisplayName}…";
             var result = await _service.GenerateAsync(CreateProfile(), SelectedTable, CreateOptions(), false);
             GeneratedSql = result.HasSql ? result.Sql : "-- sp_CRUDGen completed without returning preview text.";
+            SelectedOutputTabIndex = 0;
             Status = $"Preview generated for {SelectedTable.DisplayName}. No procedures were changed.";
         });
     }
@@ -131,6 +172,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Status = $"Creating procedures for {target.DisplayName}…";
             var result = await _service.GenerateAsync(CreateProfile(), target, CreateOptions(), true);
             if (result.HasSql) GeneratedSql = result.Sql;
+            SelectedOutputTabIndex = 0;
             ConfirmDatabaseChanges = false;
             await LoadDatabaseDetailsCoreAsync();
             SelectedTable = Tables.FirstOrDefault(item => item.DisplayName == target.DisplayName);
@@ -144,11 +186,16 @@ public partial class MainWindowViewModel : ViewModelBase
         await RunAsync(async () =>
         {
             EnsureReady();
+            if (!HasGeneratedProcedures)
+                throw new InvalidOperationException("No generated procedures were found for this table. Preview and create them first.");
             Status = $"Testing generated procedures for {SelectedTable!.DisplayName}…";
             var results = await _service.TestGeneratedProceduresAsync(CreateProfile(), SelectedTable, CreateOptions());
             var passed = results.Count(item => item.Passed);
+            TestResults.Clear();
+            foreach (var result in results) TestResults.Add(result);
             GeneratedSql = string.Join(Environment.NewLine, results.Select(item =>
                 $"[{(item.Passed ? "PASS" : "FAIL")}] {item.ProcedureName}{Environment.NewLine}       {item.Message}"));
+            SelectedOutputTabIndex = 1;
             Status = $"Procedure test completed for {SelectedTable.DisplayName}: {passed}/{results.Count} passed.";
         });
     }
@@ -171,7 +218,45 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ClearOutput() => GeneratedSql = "-- Generated SQL will appear here.";
+    private void ClearOutput()
+    {
+        GeneratedSql = "-- Generated SQL will appear here.";
+        TestResults.Clear();
+        SelectedOutputTabIndex = 0;
+    }
+
+    [RelayCommand]
+    private void SelectAllProcedureTypes()
+    {
+        GenerateCreate = GenerateCreateMultiple = GenerateRead = GenerateReadEager = true;
+        GenerateUpdate = GenerateUpdateMultiple = GenerateUpsert = GenerateIndate = true;
+        GenerateDelete = GenerateDeleteMultiple = GenerateSearch = true;
+    }
+
+    [RelayCommand]
+    private void ClearProcedureTypes()
+    {
+        GenerateCreate = GenerateCreateMultiple = GenerateRead = GenerateReadEager = false;
+        GenerateUpdate = GenerateUpdateMultiple = GenerateUpsert = GenerateIndate = false;
+        GenerateDelete = GenerateDeleteMultiple = GenerateSearch = false;
+    }
+
+    [RelayCommand]
+    private void ResetAdvancedParameters()
+    {
+        SearchSeparatorString = " to ";
+        CreatePersonColumnName = "CreatePersonId";
+        CreatePersonInclude = false;
+        CreateTimeColumnName = "CreateTime";
+        CreateTimeFunction = "SYSDATETIMEOFFSET()";
+        ModifyPersonColumnName = "ModifyPersonId";
+        ModifyPersonInclude = false;
+        ModifyTimeColumnName = "ModifyTime";
+        ModifyTimeFunction = "SYSDATETIMEOFFSET()";
+        VersionStampColumnName = "VersionStamp";
+        ValidFromTimeColumnName = "ValidFromTime";
+        ValidToTimeColumnName = "ValidToTime";
+    }
 
     private async Task RunAsync(Func<Task> operation)
     {
@@ -251,18 +336,36 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedTable = null;
         _allProcedures.Clear();
         Procedures.Clear();
+        TestResults.Clear();
         SelectedProcedure = null;
     }
 
     private void ApplyFilter()
     {
         var selected = SelectedProcedure;
-        var matches = string.IsNullOrWhiteSpace(SearchText)
-            ? _allProcedures
-            : _allProcedures.Where(item => item.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        var matches = _allProcedures.Where(IsForSelectedTable);
+        if (!string.IsNullOrWhiteSpace(SearchText))
+            matches = matches.Where(item => item.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase));
         Procedures.Clear();
         foreach (var item in matches) Procedures.Add(item);
         if (selected is not null && Procedures.Contains(selected)) SelectedProcedure = selected;
+        OnPropertyChanged(nameof(ProcedureCountText));
+        OnPropertyChanged(nameof(HasGeneratedProcedures));
+        OnPropertyChanged(nameof(HasVisibleProcedures));
+        NotifyActionState();
+    }
+
+    private bool IsForSelectedTable(StoredProcedureInfo item) =>
+        SelectedTable is not null &&
+        item.Schema.Equals(SelectedTable.Schema, StringComparison.OrdinalIgnoreCase) &&
+        KnownProcedureSuffixes.Any(suffix => item.Name.Equals(SelectedTable.Name + suffix, StringComparison.OrdinalIgnoreCase));
+
+    private void NotifyActionState()
+    {
+        OnPropertyChanged(nameof(CanGenerate));
+        OnPropertyChanged(nameof(CanCreate));
+        OnPropertyChanged(nameof(CanTest));
+        OnPropertyChanged(nameof(CanInstall));
     }
 
     private sealed class DesignTimeCrudGeneratorService : ICrudGeneratorService

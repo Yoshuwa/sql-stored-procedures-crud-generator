@@ -18,7 +18,7 @@ accessible online database, and shows the stored procedures created by `sp_CRUDG
 for the selected database. Choose one table, configure the generator parameters, then
 preview, create, and validate that table's CRUD procedures.
 
-## MVP features
+## Features
 
 - Windows and SQL authentication
 - Server-level database discovery
@@ -27,6 +27,9 @@ preview, create, and validate that table's CRUD procedures.
 - Detection and installation of the bundled `sp_CRUDGen`
 - All 11 generation switches exposed in the UI
 - Editable naming, audit-column, timestamp, and search-separator parameters
+- Professional dark utility workspace with contextual actions and status
+- Table-scoped generated-procedure browser with filtering and empty states
+- Separate SQL output and structured validation-result views
 - Safe preview mode (`@GenerateStoredProcedures = 0`)
 - Non-destructive generated-procedure validation
 - Explicit confirmation before installing or creating procedures
